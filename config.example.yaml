@@ -1,0 +1,60 @@
+# agent-notifications config example
+# Copy this to config.yaml and fill in your values.
+
+# ── Email account (agent's mailbox) ──────────────────────────────────────────
+email:
+  address:   valerieruntime@gmail.com
+  password:  "xxxx xxxx xxxx xxxx"   # Gmail app password — NOT account password
+  imap_host: imap.gmail.com
+  imap_port: 993
+  smtp_host: smtp.gmail.com
+  smtp_port: 587
+
+# ── Trusted senders (agent will reply to these in-thread) ────────────────────
+trusted_senders:
+  - you@gmail.com
+  - you@yourcompany.com
+
+# ── Noreply patterns (silently ignored, marked seen) ─────────────────────────
+noreply_patterns:
+  - noreply
+  - no-reply
+  - mailer-daemon
+  - bounce
+  - donotreply
+  - notifications.google
+
+# ── Notification channels ─────────────────────────────────────────────────────
+channels:
+  telegram:
+    enabled: true
+    chat_id: "YOUR_CHAT_ID"
+    bot_token: "YOUR_BOT_TOKEN"   # optional if Hermes handles delivery
+
+  email_reply:
+    enabled: true                  # reply in-thread to trusted senders
+
+  slack:
+    enabled: false
+    webhook_url: ""
+    username: "Agent"
+    icon_emoji: ":robot_face:"
+
+  discord:
+    enabled: false
+    webhook_url: ""
+    username: "Agent"
+
+# ── GitHub monitoring ─────────────────────────────────────────────────────────
+github:
+  token: "ghp_..."
+  repos:
+    - owner/repo
+
+# ── RSS feeds ─────────────────────────────────────────────────────────────────
+rss:
+  feeds:
+    - https://example.com/feed.xml
+
+# ── Schedule ──────────────────────────────────────────────────────────────────
+schedule: "every 5m"
