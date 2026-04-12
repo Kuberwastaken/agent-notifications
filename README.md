@@ -2,7 +2,7 @@
 
 Zero-token push notification system for AI agents. Poll any source on a schedule — only wake the agent when something actually needs attention.
 
-Built on [Hermes Agent](https://github.com/NousResearch/hermes-agent). Extensible to any channel or data source.
+Works with **Hermes Agent**, **OpenClaw**, and any other agent framework that supports scheduled tasks or cron.
 
 ---
 
@@ -18,6 +18,8 @@ every N minutes:
 
 The key insight: the data-collection script runs cheap (no API calls, no LLM). The agent only spins up when there's actually something to do.
 
+---
+
 ## Quick Start
 
 ### 1. Configure your source
@@ -29,26 +31,65 @@ cp scripts/email_checker.py scripts/my_email_checker.py
 # Edit credentials and allowed senders
 ```
 
-### 2. Create the cron job
+### 2. Set up the cron job
+
+#### Hermes Agent
 
 ```python
-from hermes_tools import cronjob
-
 cronjob(
     action="create",
     name="email-notifications",
     schedule="every 5m",
     script="my_email_checker.py",   # must live in ~/.hermes/scripts/
     prompt=open("examples/email_prompt.txt").read(),
-    deliver="origin",               # or "local", or "telegram:CHAT_ID"
+    deliver="origin",
 )
 ```
+
+For true zero-token silent runs (skip LLM entirely when nothing is new), apply the scheduler patch — see `HERMES_PATCH.md`.
+
+#### OpenClaw
+
+Add to your OpenClaw config:
+
+```yaml
+# openclaw.config.yaml
+jobs:
+  - name: email-notifications
+    schedule: "*/5 * * * *"
+    script: /path/to/scripts/my_email_checker.py
+    prompt_file: /path/to/examples/email_prompt.txt
+    deliver: telegram
+    silent_if_empty: true   # skip agent run if script has no output
+```
+
+Or via CLI:
+
+```bash
+openclaw job create \
+  --name email-notifications \
+  --schedule "*/5 * * * *" \
+  --script scripts/my_email_checker.py \
+  --prompt examples/email_prompt.txt \
+  --silent-if-empty
+```
+
+#### Any other framework / raw cron
+
+The checker scripts are pure Python stdlib — run them from anywhere:
+
+```bash
+# In system crontab (crontab -e), every 5 mins:
+*/5 * * * * OUTPUT=$(python3 /path/to/scripts/email_checker.py) && [ -n "$OUTPUT" ] && your-agent-cli send "$OUTPUT"
+```
+
+The `[ -n "$OUTPUT" ]` check means the agent only gets invoked when the script actually produced output.
 
 ### 3. That's it
 
 No new mail → script exits empty → agent never runs → zero tokens spent.
 New mail from you → agent wakes, replies via SMTP.
-External mail → agent wakes, pings you on Telegram.
+External mail → agent wakes, pings you on your notification channel.
 
 ---
 
@@ -103,6 +144,38 @@ noreply_patterns:
 
 ---
 
+## Checker scripts
+
+| Script | What it monitors |
+|--------|-----------------|
+| `scripts/email_checker.py` | Gmail IMAP inbox for unseen emails |
+| `scripts/github_checker.py` | GitHub repo for new issues/PRs |
+| `scripts/rss_checker.py` | RSS/Atom feed for new entries |
+
+All scripts follow one rule: **output nothing if there's nothing new**. This is what keeps the agent from waking up unnecessarily.
+
+### Writing your own
+
+A checker script is any executable that:
+- Outputs nothing (or exits non-zero) when there's nothing to act on
+- Outputs structured text when there is something
+
+```python
+#!/usr/bin/env python3
+import sys
+
+new_stuff = check_for_new_things()
+
+if not new_stuff:
+    sys.exit(0)   # silent — agent stays asleep
+
+print("=== NEW STUFF ===")
+for item in new_stuff:
+    print(item)
+```
+
+---
+
 ## Channels
 
 | Channel | File | Notes |
@@ -112,37 +185,36 @@ noreply_patterns:
 | Slack | `channels/slack.py` | Incoming webhook |
 | Discord | `channels/discord.py` | Incoming webhook |
 
-Each channel is a standalone Python module with a single `send(config, message)` function. Easy to add new ones.
+Each channel is a standalone Python module with a single `send(config, message)` function — easy to add new ones.
 
 ---
 
-## Checker scripts
+## Agent framework notes
 
-| Script | What it monitors |
-|--------|-----------------|
-| `scripts/email_checker.py` | Gmail IMAP inbox for unseen emails |
-| `scripts/github_checker.py` | GitHub repo for new issues/PRs |
-| `scripts/rss_checker.py` | RSS/Atom feed for new entries |
+### Hermes Agent
 
-Scripts follow one rule: **output nothing if there's nothing new**. This is what keeps the agent from waking up unnecessarily.
+- Checker script goes in `~/.hermes/scripts/`
+- Schedule via `cronjob` tool or `hermes cron create`
+- For true zero-token runs (no LLM invocation on empty output), see `HERMES_PATCH.md`
+- Delivery targets: `"origin"` (back to you), `"local"` (save to disk), `"telegram:CHAT_ID"`
 
----
+### OpenClaw
 
-## Adding a new source
+- Script can live anywhere, reference by absolute path in job config
+- `silent_if_empty: true` in job config achieves the same zero-token behavior natively
+- Delivery handled by OpenClaw's built-in channel system — the `channels/` modules here are optional extras if you need custom delivery logic
 
-1. Create `scripts/my_checker.py` — outputs structured text only when there's something new, otherwise exits silently
-2. Add a cron job pointing at your script
-3. Write a prompt that tells the agent what to do with the output
+### n8n / Make / Zapier
 
-See `scripts/email_checker.py` for the canonical pattern.
+- Use "Run Script" node → IF node → agent node
+- IF condition: script output is not empty
+- No patching needed — the flow control is visual
 
----
+### Raw cron + any CLI agent
 
-## Hermes scheduler patch (required for true zero-token runs)
-
-By default, Hermes still wakes the agent even when a script produces no output (it just suppresses delivery). To truly skip the LLM:
-
-Patch `cron/scheduler.py` in your Hermes installation — see `HERMES_PATCH.md` for the exact diff.
+```bash
+*/5 * * * * OUTPUT=$(python3 /path/to/checker.py) && [ -n "$OUTPUT" ] && echo "$OUTPUT" | your-agent send
+```
 
 ---
 
