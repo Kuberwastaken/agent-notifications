@@ -94,8 +94,8 @@ def main():
                 if entry["id"] and entry["id"] not in seen:
                     entry["feed"] = feed_url
                     new_entries.append(entry)
-        except Exception as ex:
-            print(f"RSS_CHECK_WARNING: failed to fetch {feed_url}: {ex}", file=sys.stderr)
+        except Exception:
+                pass  # Feed fetch failed — skip silently, retry next run
 
     if not new_entries:
         # Nothing new — exit silently, agent stays asleep

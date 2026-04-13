@@ -79,12 +79,10 @@ def main():
             if item["number"] > state["last_pr_id"]:
                 new_prs.append(item)
 
-    except urllib.error.HTTPError as e:
-        print(f"GH_CHECK_ERROR: HTTP {e.code} — {e.reason}", file=sys.stderr)
-        sys.exit(1)
-    except Exception as ex:
-        print(f"GH_CHECK_ERROR: {ex}", file=sys.stderr)
-        sys.exit(1)
+    except urllib.error.HTTPError:
+        sys.exit(0)  # HTTP errors — stay silent, retry next run
+    except Exception:
+        sys.exit(0)  # Network/DNS errors etc — stay silent, retry next run
 
     if not new_issues and not new_prs:
         # Nothing new — exit silently, agent stays asleep
