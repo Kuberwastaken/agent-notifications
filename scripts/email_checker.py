@@ -13,7 +13,6 @@ Configuration:
   EMAIL_PASSWORD      — Gmail app password (not account password)
                         Get one at: myaccount.google.com/apppasswords
   EMAIL_IMAP_HOST     — default: imap.gmail.com
-  EMAIL_SMTP_HOST     — default: smtp.gmail.com (used in output, not here)
   EMAIL_TRUSTED       — comma-separated trusted sender addresses
   EMAIL_NOREPLY       — comma-separated noreply patterns to silently skip
 """
@@ -28,9 +27,9 @@ import sys
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 # Edit directly or set as environment variables.
 
-EMAIL_ADDRESS  = os.getenv("EMAIL_ADDRESS", "valerieruntime@gmail.com")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")      # required
-IMAP_HOST      = os.getenv("EMAIL_IMAP_HOST", "imap.gmail.com")
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS", "your-agent@gmail.com")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")      # required — Gmail app password
+IMAP_HOST     = os.getenv("EMAIL_IMAP_HOST", "imap.gmail.com")
 
 # Trusted senders: agent will reply to these in-thread
 TRUSTED_SENDERS = set(
@@ -124,9 +123,9 @@ def main():
                 mail.store(uid, "+FLAGS", "\\Seen")
                 continue
 
-            subject    = decode_str(msg["Subject"] or "(no subject)")
-            body       = get_body(msg)[:1500]
-            msg_id     = msg["Message-ID"] or ""
+            subject     = decode_str(msg["Subject"] or "(no subject)")
+            body        = get_body(msg)[:1500]
+            msg_id      = msg["Message-ID"] or ""
             in_reply_to = msg["In-Reply-To"] or ""
 
             info = {
