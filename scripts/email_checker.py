@@ -174,9 +174,8 @@ def main():
                 print(f"Subject:    {e['subject']}")
                 print(f"Body:\n{e['body'][:400]}")
 
-    except Exception as ex:
-        print(f"EMAIL_CHECK_ERROR: {ex}", file=sys.stderr)
-        sys.exit(1)
+    except Exception:
+        sys.exit(0)  # Network/DNS errors etc — stay silent, retry next run
 
 
 if __name__ == "__main__":
